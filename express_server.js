@@ -10,7 +10,7 @@ app.use(bodyParser.urlencoded({extended: true}));
 // This tells the Express app to use EJS as its templating engine
 app.set("view engine", "ejs")
 app.use(cookieParser());
-app.use(express.static('/public')); // serve up static files in the public directory
+// app.use(express.static('/public')); // serve up static files in the public directory
 
 const urlDatabase = {
     "b2xVn2": "http://www.lighthouselabs.ca",
@@ -101,9 +101,27 @@ app.post('/urls/:shortURL/edit', (req,res) => {
 });
 
 app.post('/login', (req,res) => {
+    const email = req.body.email;
+    const password = req.body.password;
+    // const id = req.cookies.user_id;
+
+    if (!email || !password) {
+        return res.status(400).send("email and password cannot be blank");
+    }
+
+    if(!userInDatabase(email)) {
+        return res.status(403).send("no user found with that email")
+    }
+
+    let id = userInDatabase(email);
+
+    if (password !== users[id].password) {
+        return res.status(403).send("password does not match")
+    }
+
+    res.cookie('user_id', id)
     // const user_id = req.body.user_id;
     // console.log('req.body', req.body)
-    res.cookie('user_id', user_id)
     res.redirect('/');
 });
 
@@ -153,7 +171,7 @@ function generateRandomString() {
 function userInDatabase(newEmail) {
     for (const user in users) {
         if (users[user].email === newEmail) {
-            return true;
+            return users[user].id;
         }
     }
     return false;
