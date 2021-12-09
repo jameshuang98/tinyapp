@@ -12,10 +12,18 @@ app.set("view engine", "ejs")
 app.use(cookieParser());
 // app.use(express.static('/public')); // serve up static files in the public directory
 
+let loggedIn = false;
+
 const urlDatabase = {
-    "b2xVn2": "http://www.lighthouselabs.ca",
-    "9sm5xK": "http://www.google.com"
-}
+    b6UTxQ: {
+        longURL: "https://www.tsn.ca",
+        userID: "aJ48lW"
+    },
+    i3BoGr: {
+        longURL: "https://www.google.ca",
+        userID: "aJ48lW"
+    }
+};
 
 const users = { 
     "userRandomID": {
@@ -44,32 +52,38 @@ app.get("/urls", (req, res) => {
 });
 
 app.get("/urls/new", (req, res) => {
+
+    if (!loggedIn) {
+        return res.status(403).send("Only logged-in users can create URLs")
+    }
+
     const templateVars = {user: users[req.cookies.user_id], urls: urlDatabase};
     res.render("urls_new", templateVars);
 });
 
 app.get("/urls/:shortURL/edit", (req, res) => {
-    const templateVars = { user: users[req.cookies.user_id], shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL]};
+    const templateVars = { user: users[req.cookies.user_id], shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL].longURL};
     res.render("urls_show", templateVars);
 });
 
 app.get("/urls/:shortURL", (req, res) => {
-    const templateVars = { user: users[req.cookies.user_id], shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL]};
+    const templateVars = { user: users[req.cookies.user_id], shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL].longURL};
     res.render("urls_show", templateVars);
 });
 
 app.get("/u/:shortURL", (req, res) => {
-    const longURL = urlDatabase[req.params.shortURL];
+    console.log(req.body)
+    const longURL = urlDatabase[req.params.shortURL].longURL;
     res.redirect(longURL);
 });
 
 app.get("/register", (req, res) => {
-    const templateVars = { user: users[req.cookies.user_id], shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL]};
+    const templateVars = { user: users[req.cookies.user_id]};
     res.render("register", templateVars);
 });
 
 app.get("/login", (req, res) => {
-    const templateVars = { user: users[req.cookies.user_id], shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL]};
+    const templateVars = { user: users[req.cookies.user_id]};
     res.render("login", templateVars);
 });
 
@@ -80,9 +94,10 @@ app.get("/login", (req, res) => {
 app.post("/urls", (req, res) => {
     // console.log(req.body);  // Log the POST request body to the console
     let postValue = req.body; // Saving POST request body
+    console.log(postValue);
     let randomString = generateRandomString(); // generating a random 6 character string
-    urlDatabase[randomString] = postValue.longURL // Saving it to the urlDatabase
-    res.redirect('/urls/' + randomString);
+    urlDatabase[randomString] = {longURL: postValue.longURL, userID: req.cookies.user_id} // Saving it to the urlDatabase
+    res.redirect('/urls');
 });
 
 app.post('/urls/:shortURL/delete', (req,res) => {
@@ -96,7 +111,7 @@ app.post('/urls/:shortURL/edit', (req,res) => {
     // console.log('req.body',req.body);
     const longURL = req.body.URL
 
-    urlDatabase[shortURL] = longURL;
+    urlDatabase[shortURL].longURL = longURL;
     res.redirect('/');
 });
 
@@ -120,6 +135,7 @@ app.post('/login', (req,res) => {
     }
 
     res.cookie('user_id', id)
+    loggedIn = true;
     // const user_id = req.body.user_id;
     // console.log('req.body', req.body)
     res.redirect('/');
@@ -127,11 +143,8 @@ app.post('/login', (req,res) => {
 
 app.post('/logout', (req,res) => {
     res.clearCookie('user_id');
+    loggedIn = false;
     res.redirect('/');
-})
-
-app.listen(PORT, () => {
-    console.log(`Example app listening on port ${PORT}!`);
 })
 
 app.post('/register', (req,res) => {
@@ -155,9 +168,14 @@ app.post('/register', (req,res) => {
     }
 
     res.cookie('user_id', user_id)
+    loggedIn = true;
     console.log(users)
     res.redirect('/urls');
 });
+
+app.listen(PORT, () => {
+    console.log(`Example app listening on port ${PORT}!`);
+})
 
 function generateRandomString() { 
     let randomString = '';
