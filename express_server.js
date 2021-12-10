@@ -1,6 +1,8 @@
 const express = require("express");
 const app = express();
 const PORT = 8080; // default port 8080
+
+const bcrypt = require('bcryptjs');
 const cookieParser = require('cookie-parser');
 
 // Installing a piece of middleware: body-parser
@@ -27,12 +29,12 @@ const users = {
     "userRandomID": {
       id: "userRandomID", 
       email: "hello@gmail.com", 
-      password: "hello"
+      password: bcrypt.hashSync("hello")
     },
    "user2RandomID": {
       id: "user2RandomID", 
       email: "123@gmail.com", 
-      password: "123"
+      password: bcrypt.hashSync("123")
     }
 }
 
@@ -175,8 +177,7 @@ app.post('/urls/:shortURL/edit', (req,res) => {
 app.post('/login', (req,res) => {
     const email = req.body.email;
     const password = req.body.password;
-    // const id = req.cookies.user_id;
-
+    
     if (!email || !password) {
         return res.status(400).send("email and password cannot be blank");
     }
@@ -186,8 +187,7 @@ app.post('/login', (req,res) => {
     }
 
     let id = userInDatabase(email);
-
-    if (password !== users[id].password) {
+    if (!(bcrypt.compareSync(password, users[id].password))) {
         return res.status(403).send("password does not match")
     }
 
@@ -205,7 +205,7 @@ app.post('/logout', (req,res) => {
 app.post('/register', (req,res) => {
     const email = req.body.email;
     const password = req.body.password;
-    // console.log('req.body',req.body);
+    const hashedPassword = bcrypt.hashSync(password, 10);
     const user_id = generateRandomString();
 
     if (!email || !password) {
@@ -219,11 +219,11 @@ app.post('/register', (req,res) => {
     users[user_id] = {
         "id": user_id,
         "email": email,
-        "password": password
+        "password": hashedPassword
     }
 
     res.cookie('user_id', user_id)
-    console.log(users)
+    // console.log(users)
     res.redirect('/urls');
 });
 
