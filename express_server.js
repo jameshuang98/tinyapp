@@ -12,32 +12,31 @@ app.set("view engine", "ejs")
 app.use(cookieParser());
 // app.use(express.static('/public')); // serve up static files in the public directory
 
-let loggedIn = false;
-
 const urlDatabase = {
     b6UTxQ: {
         longURL: "https://www.tsn.ca",
-        userID: "aJ48lW"
+        userID: "user2RandomID"
     },
     i3BoGr: {
         longURL: "https://www.google.ca",
-        userID: "aJ48lW"
+        userID: "user2RandomID"
     }
 };
 
 const users = { 
     "userRandomID": {
       id: "userRandomID", 
-      email: "user@example.com", 
-      password: "purple-monkey-dinosaur"
+      email: "hello@gmail.com", 
+      password: "hello"
     },
    "user2RandomID": {
       id: "user2RandomID", 
-      email: "user2@example.com", 
-      password: "dishwasher-funk"
+      email: "123@gmail.com", 
+      password: "123"
     }
 }
 
+// Home page
 app.get('/', (req, res) => {
     res.redirect("/urls");
 });
@@ -46,15 +45,20 @@ app.get("/urls.json", (req, res) => {
     res.json(urlDatabase);
 });
 
+// List of urls
 app.get("/urls", (req, res) => {
-    const templateVars = {user: users[req.cookies.user_id], urls: urlDatabase};
+    let urlsAllowed = urlsForUser(req.cookies.user_id);
+    
+    const templateVars = {user: users[req.cookies.user_id], urls: urlsAllowed };
     res.render('urls_index', templateVars)
 });
 
 app.get("/urls/new", (req, res) => {
 
-    if (!loggedIn) {
-        return res.status(403).send("Only logged-in users can create URLs")
+
+    const userID = req.cookies.user_id;
+    if (!userID || !users[userID]) {
+        return res.status(403).send('Must be logged in')
     }
 
     const templateVars = {user: users[req.cookies.user_id], urls: urlDatabase};
@@ -62,17 +66,41 @@ app.get("/urls/new", (req, res) => {
 });
 
 app.get("/urls/:shortURL/edit", (req, res) => {
-    const templateVars = { user: users[req.cookies.user_id], shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL].longURL};
+    
+    let shortURL = req.params.shortURL
+    let urlsAllowed = urlsForUser(req.cookies.user_id);
+
+    const userID = req.cookies.user_id;
+    if (!userID || !users[userID]) {
+        return res.status(403).send('Must be logged in')
+    }
+
+    if (!(shortURL in urlsAllowed)) {
+        return res.status(403).send('User must be logged in to the correct account for this URL')
+    }
+
+    const templateVars = { user: users[req.cookies.user_id], shortURL: shortURL, longURL: urlDatabase[shortURL].longURL};
     res.render("urls_show", templateVars);
 });
 
 app.get("/urls/:shortURL", (req, res) => {
-    const templateVars = { user: users[req.cookies.user_id], shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL].longURL};
+    let shortURL = req.params.shortURL
+
+    const userID = req.cookies.user_id;
+    if (!userID || !users[userID]) {
+        return res.status(403).send('Must be logged in')
+    }
+
+    let urlsAllowed = urlsForUser(req.cookies.user_id);
+    if (!(shortURL in urlsAllowed)) {
+        return res.status(403).send('User must be logged in to the correct account for this URL')
+    }
+    
+    const templateVars = { user: users[req.cookies.user_id], shortURL: shortURL, longURL: urlDatabase[shortURL].longURL};
     res.render("urls_show", templateVars);
 });
 
 app.get("/u/:shortURL", (req, res) => {
-    console.log(req.body)
     const longURL = urlDatabase[req.params.shortURL].longURL;
     res.redirect(longURL);
 });
@@ -102,16 +130,45 @@ app.post("/urls", (req, res) => {
 
 app.post('/urls/:shortURL/delete', (req,res) => {
     const shortURL = req.params.shortURL;
+
+    const userID = req.cookies.user_id;
+    if (!userID || !users[userID]) {
+        return res.status(403).send('Must be logged in')
+    }
+
+    const url = urlDatabase[shortURL];
+    if (!url) {
+        return res.status(403).send("URL does not exist")
+    }
+
+    if (url.userID !== userID) {
+        return res.status(403).send('You do not own this URL');
+    }
+   
     delete urlDatabase[shortURL];
     res.redirect('/urls');
 });
 
 app.post('/urls/:shortURL/edit', (req,res) => {
     const shortURL = req.params.shortURL;
-    // console.log('req.body',req.body);
-    const longURL = req.body.URL
+    const longURL = req.body.URL;
+    const userID = req.cookies.user_id;
 
-    urlDatabase[shortURL].longURL = longURL;
+    if (!userID || !users[userID]) {
+        return res.status(403).send('Must be logged in')
+    }
+
+    const url = urlDatabase[shortURL];
+    if (!url) {
+        return res.status(403).send("URL does not exist")
+    }
+
+    if (url.userID !== userID) {
+        return res.status(403).send('You do not own this URL');
+    }
+
+    
+    url.longURL = longURL;
     res.redirect('/');
 });
 
@@ -135,7 +192,6 @@ app.post('/login', (req,res) => {
     }
 
     res.cookie('user_id', id)
-    loggedIn = true;
     // const user_id = req.body.user_id;
     // console.log('req.body', req.body)
     res.redirect('/');
@@ -143,7 +199,6 @@ app.post('/login', (req,res) => {
 
 app.post('/logout', (req,res) => {
     res.clearCookie('user_id');
-    loggedIn = false;
     res.redirect('/');
 })
 
@@ -168,7 +223,6 @@ app.post('/register', (req,res) => {
     }
 
     res.cookie('user_id', user_id)
-    loggedIn = true;
     console.log(users)
     res.redirect('/urls');
 });
@@ -177,6 +231,7 @@ app.listen(PORT, () => {
     console.log(`Example app listening on port ${PORT}!`);
 })
 
+// Generates a random string of 6 characters
 function generateRandomString() { 
     let randomString = '';
     const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -186,6 +241,7 @@ function generateRandomString() {
     return randomString;
 }
 
+// If the user is registered in the database, this function will use its email to find its ID
 function userInDatabase(newEmail) {
     for (const user in users) {
         if (users[user].email === newEmail) {
@@ -193,4 +249,15 @@ function userInDatabase(newEmail) {
         }
     }
     return false;
+}
+
+// If the user is registered in the database, this function will use its email to find its ID
+function urlsForUser(id) {
+    let visibleURL = {};
+    for (const url in urlDatabase) {
+        if (urlDatabase[url].userID === id) {
+            visibleURL[url] = {userID: id, longURL: urlDatabase[url].longURL}
+        }
+    }
+    return visibleURL;
 }
