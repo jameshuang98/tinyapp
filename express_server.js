@@ -235,7 +235,7 @@ app.post('/login', (req,res) => {
 });
 
 app.post('/logout', (req,res) => {
-  delete req.session.userID;
+  req.session = null; // Deletes cookies completely
   res.redirect('/');
 });
 
