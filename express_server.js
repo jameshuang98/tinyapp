@@ -236,7 +236,7 @@ app.post('/login', (req,res) => {
 
 app.post('/logout', (req,res) => {
   req.session = null; // Deletes cookies completely
-  res.redirect('/');
+  res.redirect('/urls');
 });
 
 app.post('/register', (req,res) => {
